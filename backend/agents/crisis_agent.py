@@ -1,4 +1,9 @@
+from typing import Tuple, Optional
+
 class CrisisDetectionAgent:
+    """
+    Agent responsible for detecting crisis keywords in text to ensure user safety.
+    """
     def __init__(self):
         self.crisis_keywords = [
             "suicide", "kill myself", "end my life", "want to die", 
@@ -12,21 +17,19 @@ class CrisisDetectionAgent:
             "Your safety is the most important thing right now."
         )
 
-    def check_crisis(self, text: str):
+    def check_crisis(self, text: str) -> Tuple[bool, Optional[str]]:
         """
         Checks if the input text contains crisis keywords.
+
+        Args:
+            text (str): The input text to check.
+
         Returns:
-            bool: True if crisis detected, False otherwise.
-            str: Crisis response message if detected, else None.
+            tuple: (is_crisis: bool, message: str or None)
         """
         text_lower = text.lower()
-        print(f"Checking for crisis keywords in: {text_lower}")
+        # print(f"Checking for crisis keywords in: {text_lower}") # Removed for production
         for keyword in self.crisis_keywords:
             if keyword in text_lower:
                 return True, self.helpline_message
         return False, None
-
-if __name__ == "__main__":
-    agent = CrisisDetectionAgent()
-    is_crisis, msg = agent.check_crisis("I just want to end my life")
-    print(is_crisis, msg)

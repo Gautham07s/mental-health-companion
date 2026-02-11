@@ -1,10 +1,14 @@
 import random
+from typing import Dict, List
 
 class SupportAgent:
+    """
+    Agent responsible for providing coping strategies based on detected emotions.
+    """
     def __init__(self):
         # Database of coping strategies mapped to emotions
-        self.strategies = {
-            "sadness": [
+        self.strategies: Dict[str, List[str]] = {
+             "sadness": [
                 "It’s okay to feel sad. Maybe try writing down your thoughts in a journal?",
                 "Have you considered taking a short walk outside? Sometimes fresh air helps.",
                 "Listen to some comforting music or a favorite song.",
@@ -37,15 +41,17 @@ class SupportAgent:
             ]
         }
 
-    def get_recommendation(self, emotion: str):
+    def get_recommendation(self, emotion: str) -> str:
         """
-        Returns a coping strategy suggestions based on the emotion.
+        Returns a coping strategy suggestion based on the emotion.
+
+        Args:
+            emotion (str): The detected emotion label.
+
+        Returns:
+            str: A recommendation string.
         """
         # DistilBERT emotions: sadness, joy, love, anger, fear, surprise
         if emotion in self.strategies:
             return random.choice(self.strategies[emotion])
         return "Remember to take deep breaths and stay hydrated."
-
-if __name__ == "__main__":
-    agent = SupportAgent()
-    print(agent.get_recommendation("fear"))

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { Send, User, Bot, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -15,16 +15,16 @@ export default function ChatBox() {
     const [loading, setLoading] = useState(false)
     const messagesEndRef = useRef(null)
 
-    const scrollToBottom = () => {
+    const scrollToBottom = useCallback(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-    }
+    }, [])
 
     useEffect(() => {
         scrollToBottom()
-    }, [messages])
+    }, [messages, scrollToBottom])
 
-    const sendMessage = async () => {
-        if (!input.trim()) return
+    const sendMessage = useCallback(async () => {
+        if (!input.trim() || loading) return
 
         const userMsg = { type: 'user', text: input }
         setMessages(prev => [...prev, userMsg])
@@ -33,8 +33,7 @@ export default function ChatBox() {
 
         try {
             const response = await axios.post('http://localhost:8000/chat', {
-                text: userMsg.text,
-                user_id: 'guest'
+                text: userMsg.text
             })
 
             const data = response.data
@@ -59,12 +58,12 @@ export default function ChatBox() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [input, loading])
 
     return (
-        <div className="flex flex-col h-full bg-transparent"> {/* bg-transparent for global background */}
+        <div className="flex flex-col h-full bg-transparent">
 
-            {/* Messages Area - Glassmorphism applied to container if needed, or keeping it clean */}
+            {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <AnimatePresence>
                     {messages.map((msg, index) => (
@@ -150,6 +149,7 @@ export default function ChatBox() {
                             <div className="w-2 h-2 bg-accent-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
                             <div className="w-2 h-2 bg-accent-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                             <div className="w-2 h-2 bg-accent-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                            <span className="text-xs text-gray-500 ml-2">Thinking...</span>
                         </div>
                     </motion.div>
                 )}

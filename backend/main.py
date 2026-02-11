@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from jose import JWTError, jwt
+from contextlib import asynccontextmanager
 
 # Import Agents
 from .agents.emotion_agent import EmotionAnalysisAgent
@@ -18,6 +19,22 @@ from .database import engine, Base, get_db
 from .models import Message, EmotionLog, User
 from .auth import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
 
+# Global Agent Instances (Initialized in lifespan)
+agents: Dict[str, Any] = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load Agents on Startup
+    print("Initializing Agents...")
+    agents["emotion"] = EmotionAnalysisAgent()
+    agents["crisis"] = CrisisDetectionAgent()
+    agents["conversation"] = ConversationAgent()
+    agents["support"] = SupportAgent()
+    print("All Agents Initialized.")
+    yield
+    # Clean up on Shutdown (if needed)
+    agents.clear()
+
 # Initialize Database
 try:
     Base.metadata.create_all(bind=engine)
@@ -25,7 +42,7 @@ except Exception as e:
     print(f"Database setup error (sanity check): {e}")
 
 # Initialize App
-app = FastAPI(title="Mental Health Virtual Companion API")
+app = FastAPI(title="Mental Health Virtual Companion API", lifespan=lifespan)
 
 # Setup CORS
 app.add_middleware(
@@ -35,14 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize Agents
-print("Initializing Agents...")
-emotion_agent = EmotionAnalysisAgent()
-crisis_agent = CrisisDetectionAgent()
-conversation_agent = ConversationAgent()
-support_agent = SupportAgent()
-print("All Agents Initialized.")
 
 # OAuth2 Scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -123,7 +132,7 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
     user_text = request.text
     
     # 1. Crisis Detection
-    is_crisis, crisis_msg = crisis_agent.check_crisis(user_text)
+    is_crisis, crisis_msg = agents["crisis"].check_crisis(user_text)
     
     # Save User Message with User ID
     user_msg_entry = Message(
@@ -150,7 +159,7 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
         )
 
     # 2. Emotion Analysis
-    emotion_result = emotion_agent.analyze(user_text)
+    emotion_result = agents["emotion"].analyze(user_text)
     emotion = emotion_result['label']
     confidence = emotion_result['score']
     
@@ -165,10 +174,10 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
     # 3. Support Recommendation
     recommendation = None
     if emotion in ["sadness", "fear", "anger"]:
-        recommendation = support_agent.get_recommendation(emotion)
+        recommendation = agents["support"].get_recommendation(emotion)
 
     # 4. Conversation Generation
-    bot_reply = conversation_agent.generate_response(user_text)
+    bot_reply = agents["conversation"].generate_response(user_text)
     
     bot_msg_entry = Message(sender="bot", content=bot_reply, user_id=current_user.id)
     db.add(bot_msg_entry)

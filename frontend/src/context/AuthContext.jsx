@@ -9,15 +9,43 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Axios Interceptor to handle 401 Unauthorized globally
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response && error.response.status === 401) {
+                    logout(); // Auto logout on token expiration
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        };
+    }, []); // Run once on mount
+
+    useEffect(() => {
         if (token) {
-            // Decode JWT to get username (or call /me endpoint if implemented)
-            // For simplicity, we just assume valid if token exists, 
-            // but in real app we'd verify exp
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            setUser({ username: payload.sub });
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            try {
+                // Decode JWT payload (simple check)
+                const payload = JSON.parse(atob(token.split('.')[1]));
+
+                // Check expiration if needed (basic check)
+                const isExpired = payload.exp && payload.exp * 1000 < Date.now();
+
+                if (isExpired) {
+                    logout();
+                } else {
+                    setUser({ username: payload.sub });
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                }
+            } catch (e) {
+                logout();
+            }
         } else {
             delete axios.defaults.headers.common['Authorization'];
+            setUser(null);
         }
         setLoading(false);
     }, [token]);
@@ -54,6 +82,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         setToken(null);
         setUser(null);
+        delete axios.defaults.headers.common['Authorization'];
     };
 
     return (
